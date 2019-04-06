@@ -1,6 +1,10 @@
 #include "EvolveWFC.hpp"
 #include <libconfig.h++>
 
+// We include the binary version of the kernel string
+// Parsed by the xxd utility.
+// This enable to correctly include the okl kernel
+#include "laplace2d.okbin"
 
 using namespace libconfig;
 
@@ -49,6 +53,10 @@ HilbertSpace::HilbertSpace(const char * config_file) {
     string mode;
     float sigma;
     LoadCFG(config_file, Nx, Ny, dx, dy, sigma, dt, mode);
+    string kernel_source = reinterpret_cast<char*>(src_laplace2d_okl);
+
+    //cout << "Checking the kernel source:" << endl;
+    //cout << kernel_source << endl;
 
     // Prepare the device
     dev.setup(mode.c_str());
@@ -63,9 +71,13 @@ HilbertSpace::HilbertSpace(const char * config_file) {
     psi_imag = new float[Nx*Ny];
 
     // Setup the kernels
-    ker_laplace = dev.buildKernel("laplace2d.okl", "laplace2D");
-    ker_scalar = dev.buildKernel("laplace2d.okl", "scalardot");
-    ker_harm = dev.buildKernel("laplace2d.okl", "ApplyHarmonicHamiltonian");
+    ker_laplace = dev.buildKernelFromString(kernel_source, "laplace2D");
+    ker_scalar = dev.buildKernelFromString(kernel_source, "scalardot");
+    ker_harm = dev.buildKernelFromString(kernel_source, "ApplyHarmonicHamiltonian");
+    
+    //ker_laplace = dev.buildKernel("laplace2d.okl", "laplace2D");
+    //ker_scalar = dev.buildKernel("laplace2d.okl", "scalardot");
+    //ker_harm = dev.buildKernel("laplace2d.okl", "ApplyHarmonicHamiltonian");
 
     // Initialize as a gaussian
     InitGaussian(sigma, sigma, 0, 0);

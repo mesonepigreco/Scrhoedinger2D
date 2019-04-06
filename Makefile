@@ -9,5 +9,8 @@ bin/main.x: src/main.cpp src/EvolveWFC.o
 bin/test_laplace.x: src/test_laplace.cpp 
 	$(compiler) $(compilerFlags) -o bin/test_laplace.x $(flags) src/test_laplace.cpp src/EvolveWFC.o $(paths) -L${OCCA_DIR}/lib $(linkerFlags) $(LDEXTRA)
 
-src/EvolveWFC.o: src/EvolveWFC.cpp src/EvolveWFC.hpp
+src/EvolveWFC.o: src/EvolveWFC.cpp src/EvolveWFC.hpp src/laplace2d.okbin
 	$(compiler) $(compilerFlags) -o src/EvolveWFC.o -c src/EvolveWFC.cpp $(paths) 
+
+src/laplace2d.okbin: src/laplace2d.okl
+	xxd -i src/laplace2d.okl > src/laplace2d.okbin
