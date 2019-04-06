@@ -46,7 +46,7 @@ class HilbertSpace {
      * It needs the wavefunction to be already copied on the CPU.
      * You can do that with CopyFromGPU method.
      */
-    void MeasureCPU(float &X0, float &Y0, float &sigmaX, float &sigmaY);
+    void MeasureCPU(float &X0, float &Y0, float &sigmaX, float &sigmaY, float &norm);
 };
 
 

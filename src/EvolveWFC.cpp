@@ -101,9 +101,10 @@ void HilbertSpace::CopyFromGPU() {
 void HilbertSpace::InitGaussian(float sigma_x, float sigma_y, float x0, float y0) {
     float norm;
 
-    norm = 1.f/ sqrtf(sqrtf(2*M_PI)*sigma_x * sigma_y);
+    norm = sqrtf(M_PI*sigma_x * sigma_y);
+    float test = 0;
 
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for collapse(2) reduction(+:test)
     for (int i = 0; i < Ny; ++i) {
         for (int j = 0; j < Nx; ++j) {
             float x = (i - Ny/2) * dx;
@@ -111,8 +112,21 @@ void HilbertSpace::InitGaussian(float sigma_x, float sigma_y, float x0, float y0
             psi_real[Nx*i + j] = expf(- (x - x0)*(x-x0)/(2*sigma_x*sigma_x) - (y -y0)*(y-y0)/(2*sigma_y*sigma_y));
             psi_real[Nx*i + j] /= norm;
             psi_imag[Nx*i + j] = 0.f;
+            test += psi_real[Nx*i + j] * psi_real[Nx*i + j] * dx*dy;
         }
     }
+    cout << "Initialized wavefunction: norm = " << std::scientific << test << std::fixed << endl;
+
+    // test = 0;
+    // for (int i = 0; i < Ny; ++i) {
+    //     for (int j = 0; j < Nx; ++j) {
+    //         float x = (i - Ny/2) * dx;
+    //         float y = (j - Nx/2) * dx;
+    //         test += psi_real[Nx*i + j] * psi_real[Nx*i + j] * dx*dy;
+    //     }
+    // }
+    // cout << "Serial result:" << endl;
+    // cout << "Initialized wavefunction: norm = " << std::scientific << test << std::fixed << endl;
 }
 
 void HilbertSpace::LeapFrogStepGPU() {
@@ -133,13 +147,14 @@ void HilbertSpace::LeapFrogGPU(int N_steps) {
 }
 
 
-void HilbertSpace::MeasureCPU(float &X0, float &Y0, float &sigmaX, float &sigmaY) {
+void HilbertSpace::MeasureCPU(float &X0, float &Y0, float &sigmaX, float &sigmaY, float &norm) {
     X0 = 0;
     Y0 = 0;
     sigmaX = 0;
     sigmaY = 0;
+    norm = 0;
 
-    #pragma omp parallel for collapse(2) reduction(+:X0,Y0,sigmaX,sigmaY)
+    #pragma omp parallel for collapse(2) reduction(+:X0,Y0,sigmaX,sigmaY,norm)
     for (int i = 0; i < Ny; ++i) {
         for (int j = 0; j < Nx; ++j) {
             float x = (j - Nx/2) * dx;
@@ -150,6 +165,7 @@ void HilbertSpace::MeasureCPU(float &X0, float &Y0, float &sigmaX, float &sigmaY
             Y0 += p*y;
             sigmaX += p*x*x;
             sigmaY += p*y*y;
+            norm += p;
         }
     }
     sigmaX -= X0*X0;

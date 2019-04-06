@@ -28,7 +28,7 @@ int main(int argc, char * argv[]) {
     string real_name;
     LoadInfoSym(argv[1], Nt, Nsteps, HS.mx, HS.my, save_fname);
 
-    float X0, Y0, sigmaX, sigmaY, sigmaXY;
+    float X0, Y0, sigmaX, sigmaY, sigmaXY, norm;
 
     // Run
     HS.CopyToGPU();
@@ -54,13 +54,14 @@ int main(int argc, char * argv[]) {
         WriteToFile(real_name.c_str(), HS.Nx, HS.Ny, HS.psi_imag);
 
         // Compute the observables
-        HS.MeasureCPU(X0, Y0, sigmaX, sigmaY);
+        HS.MeasureCPU(X0, Y0, sigmaX, sigmaY, norm);
 
         // Print the observables on stdout
         cout << endl;
         cout << "Time = " << (i+1) * Nsteps * HS.dt << endl;
         cout << "Averages:" << endl;
         cout << std::scientific;
+        cout << "Normalization = " << norm << endl;
         cout << "X0 = " << X0 << endl;
         cout << "Y0 = " << Y0 << endl;
         cout << "Sigma2X = " << sigmaX << endl;
