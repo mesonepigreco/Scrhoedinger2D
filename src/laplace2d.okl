@@ -1,0 +1,43 @@
+@kernel void laplace2D(const int Nx, const int Ny, const float dx, const float dy, const float scalar, const float * input_psi @dim(Nx, Ny), float * output_psi @dim(Nx, Ny)) {
+    for (int i = 0; i < Nx*Ny; ++i; @tile(32, @outer, @inner)) {
+        int ix, iy;
+        float x, y;
+        ix = i % Nx;
+        iy = i / Nx;
+        int iynext = (iy + 1) % Ny; 
+        int iybefore = (iy - 1 + Ny) % Ny; 
+        int ixnext = (ix + 1) % Nx; 
+        int ixbefore = (ix - 1 + Nx) % Nx; 
+        x = (ix - Nx/2) * dx;
+        y = (iy - Ny/2) * dy;
+        float result = -4*input_psi(ix, iy) + input_psi(ixnext, iy) + input_psi(ixbefore, iy) + input_psi(ix, iynext) + input_psi(ix, iybefore);
+        result /= dx*dy;
+        result *= scalar;
+        output_psi(ix, iy) += result; 
+    }
+}
+
+
+@kernel void ApplyHarmonicHamiltonian(const int Nx, const int Ny, const float dx, const float dy, 
+        const float phi_xx, const float phi_yy, const float phi_xy, const float scalar,
+        const float * input_psi @dim(Nx, Ny), float * output_psi @dim(Nx, Ny)) {
+            
+    for (int i = 0; i < Nx*Ny; ++i; @tile(32, @outer, @inner)) {
+        int ix, iy;
+        float x, y;
+        ix = i % Nx;
+        iy = i / Nx;
+        x = (ix - Nx/2) * dx;
+        y = (iy - Ny/2) * dy;
+        float result = 0.5f* phi_xx * x * x;
+        result += 0.5f* phi_yy * y * y;
+        result += phi_xy * x * y;
+        output_psi(ix, iy) += result * input_psi(ix, iy) * scalar; 
+    }
+}
+
+@kernel void scalardot(const int Nx, const int Ny, const float scalar, float * psi @dim(Nx, Ny)) {
+    for (int i = 0; i < Nx*Ny; ++i; @tile(32, @outer, @inner)) {
+        psi[i] *= scalar;
+    }
+}

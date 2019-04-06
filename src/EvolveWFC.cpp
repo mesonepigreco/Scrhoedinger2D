@@ -106,11 +106,11 @@ void HilbertSpace::InitGaussian(float sigma_x, float sigma_y, float x0, float y0
 void HilbertSpace::LeapFrogStepGPU() {
     // Advance the imaginary part before the real one
     ker_laplace(Nx, Ny, dx*mx, dy*my, dt/2, o_psi_real, o_psi_imag);
-    ker_harm(Nx, Ny, dx, dy, 0, 0, k, -dt, o_psi_real, o_psi_imag);
+    ker_harm(Nx, Ny, dx, dy, k_xx, k_yy, k_xy, -dt, o_psi_real, o_psi_imag);
 
     // Advance the real part
     ker_laplace(Nx, Ny, dx*mx, dy*my, -dt/2, o_psi_imag, o_psi_real);
-    ker_harm(Nx, Ny, dx, dy, 0, 0, k, dt, o_psi_imag, o_psi_real);
+    ker_harm(Nx, Ny, dx, dy, k_xx, k_yy, k_xy, dt, o_psi_imag, o_psi_real);
 }
 
 
@@ -142,4 +142,44 @@ void HilbertSpace::MeasureCPU(float &X0, float &Y0, float &sigmaX, float &sigmaY
     }
     sigmaX -= X0*X0;
     sigmaY -= Y0*Y0;
+}
+
+
+
+void HilbertSpace::ConfigureFromCFG(const char * fname) {
+    Config cfg;
+
+    try {
+        cfg.readFile(fname);
+    } catch (const FileIOException &e) {
+        cerr << "Error, file " << fname << " not found." << endl;
+        throw;
+    } catch (const ParseException &e) {
+        cerr << "Parse error at " << e.getFile() << " : " << e.getLine() << endl;
+        cerr << e.getError() << endl;
+        throw;
+    }
+
+    dt = 1.0;
+    try {
+        Nx = cfg.lookup("Nx");
+        Ny = cfg.lookup("Ny");
+        dx = cfg.lookup("dx");
+        dy = cfg.lookup("dy");
+        k_xx = cfg.lookup("k_xx");
+        k_xy = cfg.lookup("k_xy");
+        k_yy = cfg.lookup("k_yy");
+        if (!cfg.lookupValue("dt", dt)) {
+            cout << "dt" << " not found in the input file." << endl;
+            cout << "I assume dt = " << dt << endl;
+        }
+    } catch (const SettingNotFoundException &e) {
+        cerr << "Error, setting " << e.getPath() << " not found." << endl;
+        cerr << e.what() << endl;
+        throw;
+    } catch (const SettingTypeException &e) {
+        cerr << "Error, wrong type for setting : " << e.getPath() << endl;
+        cerr << e.what() << endl;
+        throw;
+    }
 }

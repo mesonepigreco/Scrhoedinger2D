@@ -16,7 +16,7 @@ class HilbertSpace {
 
     float mx;
     float my;
-    float k;
+    float k_xx, k_yy, k_xy;
 
     // The other memory
     float * psi_real, *psi_imag;
@@ -38,6 +38,8 @@ class HilbertSpace {
 
     void LeapFrogGPU(int N_steps);
     void LeapFrogStepGPU();
+
+    void ConfigureFromCFG(const char * config_file);
 
     /*
      * Perform some measurements on the CPU wavefunction
