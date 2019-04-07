@@ -283,7 +283,7 @@ void HilbertSpace::ConfigureFromCFG(const char * fname) {
         mx = Simulation.lookup("mx");
         my = Simulation.lookup("my");
 
-        if (!root.lookupValue("algorithm", algorithm)) {
+        if (!Simulation.lookupValue("algorithm", algorithm)) {
             cout << "algorithm keyword not found" << endl;
             cout << "assuming " << algorithm << endl;
         }
@@ -298,7 +298,7 @@ void HilbertSpace::ConfigureFromCFG(const char * fname) {
     }
 }
 
-void HilbertSpace::GetEvolveFunctionGPU(int Nsteps) {
+void HilbertSpace::EvolveFunctionGPU(int Nsteps) {
     if (algorithm == ALGORITHM_LF) {
         LeapFrogGPU(Nsteps);
     } else if (algorithm == ALGORITHM_CN) {

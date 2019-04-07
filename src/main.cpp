@@ -36,7 +36,7 @@ int main(int argc, char * argv[]) {
         cout << " ======  STEP " << i << " =======" << endl;
         // Perform the simulation
         gettimeofday(&startTime, NULL);
-        HS.LeapFrogGPU(Nsteps);
+        HS.EvolveFunctionGPU(Nsteps);
 
         // Copy back in the CPU
         HS.CopyFromGPU();

@@ -57,7 +57,7 @@ class HilbertSpace {
 
     // Evolve according to the algorithm that satisfy the key
     // Satisfying the algorithm keyword
-    void GetEvolveFunctionGPU(int Nsteps);
+    void EvolveFunctionGPU(int Nsteps);
 
     void LeapFrogStepGPU();
     void ApplyInverseHalfEulerStep(memory psi_real, memory psi_imag, int Ntimes);
