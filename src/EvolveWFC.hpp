@@ -2,8 +2,14 @@
 #include <iostream>
 #include <string>
 
+#define NMAXITER 10
+
 using namespace std;
 using namespace occa;
+
+#define ALGORITHM_LF "Leap-Frog"
+#define ALGORITHM_CN "Crank-Nicolson"
+
 
 
 class HilbertSpace {
@@ -18,14 +24,19 @@ class HilbertSpace {
     float my;
     float k_xx, k_yy, k_xy;
 
+    string algorithm;
+
     // The other memory
     float * psi_real, *psi_imag;
-    memory o_psi_real;
-    memory o_psi_imag;
+    memory o_psi_real, o_psi_re_tmp;
+    memory o_psi_imag, o_psi_imag_tmp;
+    memory o_work;
     device dev;
     kernel ker_laplace;
     kernel ker_scalar;
     kernel ker_harm;
+    kernel ker_refresh;
+    kernel ker_sum;
 
 
     HilbertSpace(const char * config_file);
@@ -36,10 +47,25 @@ class HilbertSpace {
 
     void InitGaussian(float sigma_x, float sigma_y, float x0, float y0);
 
+    /* 
+     * Evolve the system on the GPU using the LeapFrog algorithm
+     */
     void LeapFrogGPU(int N_steps);
+
+    // Evolve the system on the GPU using the Crank-Nicolson algorithm
+    void CNGPU(int N_steps);
+
+    // Evolve according to the algorithm that satisfy the key
+    // Satisfying the algorithm keyword
+    void GetEvolveFunctionGPU(int Nsteps);
+
     void LeapFrogStepGPU();
+    void ApplyInverseHalfEulerStep(memory psi_real, memory psi_imag, int Ntimes);
+    void ApplyCayleyOperator();
+    
 
     void ConfigureFromCFG(const char * config_file);
+
 
     /*
      * Perform some measurements on the CPU wavefunction

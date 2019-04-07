@@ -41,3 +41,15 @@
         psi[i] *= scalar;
     }
 }
+
+@kernel void refresh(const int Nx, const int Ny, float * psi @dim(Nx, Ny)) {
+    for (int i = 0; i < Nx*Ny; ++i; @tile(32, @outer, @inner)) {
+        psi[i] = 0.f;
+    }
+}
+
+@kernel void sum(const int Nx, const int Ny, const float * origin, float * target) {
+    for (int i = 0; i < Nx*Ny; ++i; @tile(32, @outer, @inner)) {
+        target[i] += origin[i];
+    }
+}

@@ -66,6 +66,7 @@ HilbertSpace::HilbertSpace(const char * config_file) {
     // Prepare the host and device memory
     o_psi_imag = dev.malloc(Nx*Ny, occa::dtype::get<float>());
     o_psi_real = dev.malloc(Nx*Ny, occa::dtype::get<float>());
+    o_work = dev.malloc(Nx*Ny, occa::dtype::get<float>());
     
     psi_real = new float[Nx*Ny];
     psi_imag = new float[Nx*Ny];
@@ -74,10 +75,14 @@ HilbertSpace::HilbertSpace(const char * config_file) {
     ker_laplace = dev.buildKernelFromString(kernel_source, "laplace2D");
     ker_scalar = dev.buildKernelFromString(kernel_source, "scalardot");
     ker_harm = dev.buildKernelFromString(kernel_source, "ApplyHarmonicHamiltonian");
+    ker_refresh = dev.buildKernelFromString(kernel_source, "refresh");
+    ker_sum = dev.buildKernelFromString(kernel_source, "refresh");
     
     //ker_laplace = dev.buildKernel("laplace2d.okl", "laplace2D");
     //ker_scalar = dev.buildKernel("laplace2d.okl", "scalardot");
     //ker_harm = dev.buildKernel("laplace2d.okl", "ApplyHarmonicHamiltonian");
+
+    ConfigureFromCFG(config_file);
 
     // Initialize as a gaussian
     InitGaussian(sigma, sigma, 0, 0);
@@ -146,6 +151,65 @@ void HilbertSpace::LeapFrogGPU(int N_steps) {
     }
 }
 
+void HilbertSpace::CNGPU(int N_steps) {
+    for (int i = 0; i < N_steps; ++i) {
+        ApplyCayleyOperator();
+    }
+}
+
+void HilbertSpace::ApplyInverseHalfEulerStep(memory psi_real, memory psi_imag, int Ntimes) {
+    // Set the work to 0
+    for (int i = 0; i < Ntimes; ++i) { 
+        ker_refresh(Nx, Ny, o_work);
+
+        // Prepare the imaginary part
+        ker_laplace(Nx, Ny, dx*mx, dy*my, dt/2, psi_real, o_work);
+        ker_harm(Nx, Ny, dx, dy, k_xx, k_yy, k_xy, -dt, psi_real, o_work);
+
+        // Advance the real part
+        ker_laplace(Nx, Ny, dx*mx, dy*my, -dt/2, o_psi_imag, psi_real);
+        ker_harm(Nx, Ny, dx, dy, k_xx, k_yy, k_xy, dt, o_psi_imag, psi_real);
+
+        // Advance the imaginary part
+        ker_sum(Nx, Ny, o_work, psi_imag);
+    }
+}
+
+void HilbertSpace::ApplyCayleyOperator() {
+    // Allocate the memory for the temporaney variable
+    memory tmp_psi_real, tmp_psi_imag, work1, work2;
+    tmp_psi_real = dev.malloc(Nx*Ny, occa::dtype::get<float>());
+    tmp_psi_imag = dev.malloc(Nx*Ny, occa::dtype::get<float>());
+    work1 = dev.malloc(Nx*Ny, occa::dtype::get<float>());
+    work2 = dev.malloc(Nx*Ny, occa::dtype::get<float>());
+
+    // Apply the direct evolution
+    ApplyInverseHalfEulerStep(o_psi_real, o_psi_imag, 1);
+    
+    // Refresh
+    ker_refresh(Nx, Ny, work1);
+    ker_refresh(Nx, Ny, work2);
+
+    // Apply the inverse evolution
+    for (int i = 0; i < NMAXITER; ++i) {
+
+        // Perform a DeviceToDevice copy (fast)
+        tmp_psi_real.copyFrom(o_psi_real);
+        tmp_psi_imag.copyFrom(o_psi_real);
+
+        // Apply the hamiltonian
+        ApplyInverseHalfEulerStep(tmp_psi_real, tmp_psi_imag, i);
+
+        // Sum
+        ker_sum(Nx, Ny, tmp_psi_real, work1);
+        ker_sum(Nx, Ny, tmp_psi_imag, work2);
+    }
+
+    // Sum
+    ker_sum(Nx, Ny, work1, o_psi_real);
+    ker_sum(Nx, Ny, work2, o_psi_imag);
+}
+
 
 void HilbertSpace::MeasureCPU(float &X0, float &Y0, float &sigmaX, float &sigmaY, float &norm) {
     X0 = 0;
@@ -209,5 +273,39 @@ void HilbertSpace::ConfigureFromCFG(const char * fname) {
         cerr << "Error, wrong type for setting : " << e.getPath() << endl;
         cerr << e.what() << endl;
         throw;
+    }
+    Setting &root = cfg.getRoot();
+
+    algorithm = ALGORITHM_LF;
+    try {
+        Setting &Simulation = root["Simulation"];
+
+        mx = Simulation.lookup("mx");
+        my = Simulation.lookup("my");
+
+        if (!root.lookupValue("algorithm", algorithm)) {
+            cout << "algorithm keyword not found" << endl;
+            cout << "assuming " << algorithm << endl;
+        }
+    } catch (const SettingNotFoundException &e) {
+        cerr << "Error, segging " << e.getPath() << " not found." << endl;
+        cerr << e.what() << endl;
+        throw;
+    } catch (const SettingTypeException &e) {
+        cerr << "Error, wrong type for setting : " << e.getPath() << endl;
+        cerr << e.what() << endl;
+        throw;
+    }
+}
+
+void HilbertSpace::GetEvolveFunctionGPU(int Nsteps) {
+    if (algorithm == ALGORITHM_LF) {
+        LeapFrogGPU(Nsteps);
+    } else if (algorithm == ALGORITHM_CN) {
+        CNGPU(Nsteps);
+    } else {
+        cerr << "Error, I do not understand the algorithm you chosed" << endl;
+        cerr << "Algorithm: " << algorithm << endl;
+        throw SettingException("wrong algorithm");
     }
 }
